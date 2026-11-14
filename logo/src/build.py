@@ -48,13 +48,13 @@ def line(chars, a, b, size):
 
 k1 = P(138, 198); k2 = P(170, 342)   # original 究 / 極 centres
 VARIANTS = {
-    'kyukyoku': line('究極', k1, k2, 236),
-    'anzen':    line('安全', k1, k2, 236),
-    'takumi':   line('匠', (292, 470), (292, 470), 330),
-    'yoshidajuku': line('吉田塾', (258, 300), (340, 715), 175),
-    'monkasei':    line('門下生', (258, 300), (340, 715), 175),
-    'menkyokaiden': line('免許', (344, 312), (352, 450), 130) + line('皆伝', (208, 500), (216, 638), 130),
-    'hachinoji': line('8の字', (338, 255), (362, 525), 138) + line('極めます', (212, 380), (248, 700), 102),
+    'kyukyoku': line('究極', (260, 385), (330, 690), 290),
+    'anzen':    line('安全', (260, 385), (330, 690), 290),
+    'takumi':   line('匠', (300, 495), (300, 495), 395),
+    'yoshidajuku': line('吉田塾', (290, 290), (345, 712), 210),
+    'monkasei':    line('門下生', (290, 290), (345, 712), 210),
+    'menkyokaiden': line('免許', (382, 300), (388, 470), 168) + line('皆伝', (222, 445), (228, 615), 168),
+    'hachinoji': line('8の字', (372, 255), (386, 545), 168) + line('極めます', (212, 345), (244, 712), 124),
 }
 LABEL = {
     'kyukyoku': '究極', 'anzen': '安全', 'takumi': '匠', 'yoshidajuku': '吉田塾',
@@ -62,8 +62,11 @@ LABEL = {
 }
 
 def svg(key):
+    kanji_o = ''.join(
+        f'<text x="{x:.1f}" y="{y:.1f}" font-size="{s}" class="kj kjo" stroke-width="{s*0.065+14:.1f}">{ch}</text>'
+        for ch, x, y, s in VARIANTS[key])
     kanji = ''.join(
-        f'<text x="{x:.1f}" y="{y:.1f}" font-size="{s}" class="kj">{ch}</text>'
+        f'<text x="{x:.1f}" y="{y:.1f}" font-size="{s}" class="kj" stroke-width="{s*0.065:.1f}">{ch}</text>'
         for ch, x, y, s in VARIANTS[key])
     return f'''<svg id="{key}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 1000" width="1000" height="1000">
 <defs>
@@ -73,6 +76,7 @@ def svg(key):
 </defs>
 <circle cx="{C}" cy="{C}" r="{R_OUT_OUT}" fill="#fff"/>
 <image href="data:image/png;base64,{b64}" x="{P(0,0)[0]:.2f}" y="{P(0,0)[1]:.2f}" width="{src.shape[1]*K}" height="{src.shape[0]*K}" clip-path="url(#clip-{key})" preserveAspectRatio="none"/>
+{kanji_o}
 <g fill="none" stroke="#000">
   <circle cx="{C}" cy="{C}" r="{(R_RING_IN+R_RING_OUT)/2}" stroke-width="{R_RING_OUT-R_RING_IN}"/>
   <circle cx="{C}" cy="{C}" r="{(R_OUT_IN+R_OUT_OUT)/2}" stroke-width="{R_OUT_OUT-R_OUT_IN}"/>
@@ -83,12 +87,13 @@ def svg(key):
 </svg>'''
 
 html = f'''<!doctype html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,900&family=Noto+Serif+JP:wght@900&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,900&family=Yuji+Boku&display=block" rel="stylesheet">
 <style>
 body{{margin:0;background:transparent}}
 svg{{display:block}}
 .ring{{font-family:'Archivo';font-stretch:125%;font-weight:900;font-size:{CAP*2.04:.1f}px;fill:#000;stroke:#fff;stroke-width:5;paint-order:stroke;stroke-linejoin:round}}
-.kj{{font-family:'Noto Serif JP';font-weight:900;fill:#000;stroke:#fff;stroke-width:10;paint-order:stroke;stroke-linejoin:round;text-anchor:middle;dominant-baseline:central}}
+.kj{{font-family:'Yuji Boku';fill:#000;stroke:#000;stroke-linejoin:round;text-anchor:middle;dominant-baseline:central}}
+.kjo{{stroke:#fff;fill:#fff}}
 </style></head><body>
 {''.join(svg(k) for k in VARIANTS)}
 </body></html>'''
