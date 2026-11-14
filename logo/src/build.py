@@ -10,6 +10,8 @@ src = cv2.imread(f'{SP}/clean_nobg.png', 0)
 S = 4
 if STYLE == 'manga':
     up = cv2.imread(f'{SP}/manga.png', 0)
+elif STYLE == 'photo':
+    up = cv2.imread(f'{SP}/photo/manga_logo.png', 0)
 else:
     up = cv2.resize(src, None, fx=S, fy=S, interpolation=cv2.INTER_CUBIC)
 cv2.imwrite(f'{SP}/clean_up.png', up)
@@ -77,6 +79,11 @@ LABEL = {
     'monka': '門下', 'kaiden': '皆伝', 'hachinoji': '8の字極めます',
 }
 
+if STYLE == 'photo':
+    IX, IY, IW, IH = 0, 0, 1000, 1000
+else:
+    IX, IY, IW, IH = P(0,0)[0], P(0,0)[1], src.shape[1]*K, src.shape[0]*K
+
 def svg(key):
     V = VARIANTS[key]
     def layer(cls, extra, w, dx=0, dy=0):
@@ -99,7 +106,7 @@ def svg(key):
   <path id="bp-{key}" d="{bot_path}"/>
 </defs>
 <circle cx="{C}" cy="{C}" r="{R_OUT_OUT}" fill="#fff"/>
-<image href="data:image/png;base64,{b64}" x="{P(0,0)[0]:.2f}" y="{P(0,0)[1]:.2f}" width="{src.shape[1]*K}" height="{src.shape[0]*K}" clip-path="url(#clip-{key})" preserveAspectRatio="none"/>
+<image href="data:image/png;base64,{b64}" x="{IX:.2f}" y="{IY:.2f}" width="{IW}" height="{IH}" clip-path="url(#clip-{key})" preserveAspectRatio="none"/>
 <g clip-path="url(#clip-{key})" filter="url(#blur-{key})" opacity="0.9">{glow}</g>
 {under}
 <g fill="none" stroke="#000">
