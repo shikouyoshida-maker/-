@@ -62,21 +62,28 @@ LABEL = {
 }
 
 def svg(key):
-    kanji_o = ''.join(
-        f'<text x="{x:.1f}" y="{y:.1f}" font-size="{s}" class="kj kjo" stroke-width="{s*0.065+14:.1f}">{ch}</text>'
-        for ch, x, y, s in VARIANTS[key])
-    kanji = ''.join(
-        f'<text x="{x:.1f}" y="{y:.1f}" font-size="{s}" class="kj" stroke-width="{s*0.065:.1f}">{ch}</text>'
-        for ch, x, y, s in VARIANTS[key])
+    V = VARIANTS[key]
+    def layer(cls, extra, w, dx=0, dy=0):
+        return ''.join(
+            f'<text x="{x+dx:.1f}" y="{y+dy:.1f}" font-size="{s}" class="kj {cls}" stroke-width="{s*0.065+w(s):.1f}"{extra}>{ch}</text>'
+            for ch, x, y, s in V)
+    glow = layer('kjg', '', lambda s: min(s*0.42, 80))
+    shadow = layer('kjs', '', lambda s: 34, 10, 10)
+    edge = layer('kje', '', lambda s: 34)
+    kanji_o = layer('kjo', '', lambda s: 22)
+    kanji = layer('', '', lambda s: 0)
     return f'''<svg id="{key}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 1000" width="1000" height="1000">
 <defs>
+  <filter id="blur-{key}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="22"/></filter>
+  <clipPath id="clipo-{key}"><circle cx="{C}" cy="{C}" r="{R_RING_OUT-2}"/></clipPath>
   <clipPath id="clip-{key}"><circle cx="{C}" cy="{C}" r="{R_IMG}"/></clipPath>
   <path id="tp-{key}" d="{top_path}"/>
   <path id="bp-{key}" d="{bot_path}"/>
 </defs>
 <circle cx="{C}" cy="{C}" r="{R_OUT_OUT}" fill="#fff"/>
 <image href="data:image/png;base64,{b64}" x="{P(0,0)[0]:.2f}" y="{P(0,0)[1]:.2f}" width="{src.shape[1]*K}" height="{src.shape[0]*K}" clip-path="url(#clip-{key})" preserveAspectRatio="none"/>
-{kanji_o}
+<g clip-path="url(#clip-{key})" filter="url(#blur-{key})" opacity="0.9">{glow}</g>
+<g clip-path="url(#clipo-{key})"><g opacity="0.55">{shadow}</g>{edge}{kanji_o}</g>
 <g fill="none" stroke="#000">
   <circle cx="{C}" cy="{C}" r="{(R_RING_IN+R_RING_OUT)/2}" stroke-width="{R_RING_OUT-R_RING_IN}"/>
   <circle cx="{C}" cy="{C}" r="{(R_OUT_IN+R_OUT_OUT)/2}" stroke-width="{R_OUT_OUT-R_OUT_IN}"/>
@@ -94,6 +101,8 @@ svg{{display:block}}
 .ring{{font-family:'Archivo';font-stretch:125%;font-weight:900;font-size:{CAP*2.04:.1f}px;fill:#000;stroke:#fff;stroke-width:5;paint-order:stroke;stroke-linejoin:round}}
 .kj{{font-family:'Yuji Boku';fill:#000;stroke:#000;stroke-linejoin:round;text-anchor:middle;dominant-baseline:central}}
 .kjo{{stroke:#fff;fill:#fff}}
+.kjg{{stroke:#fff;fill:#fff}}
+.kjs,.kje{{stroke:#000;fill:#000}}
 </style></head><body>
 {''.join(svg(k) for k in VARIANTS)}
 </body></html>'''
