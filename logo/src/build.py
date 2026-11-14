@@ -117,7 +117,7 @@ def svg(key):
     brk = (f'<image href="data:image/png;base64,{pb64}" x="0" y="0" width="1000" height="1000" '
            f'clip-path="url(#brk-{key})" preserveAspectRatio="none"/>') if PERSON else ''
     under, over = ('', stack) if key in OVER else (f'<g clip-path="url(#clipo-{key})">{stack}</g>', '')
-    return f'''<svg id="{key}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 1000" width="1000" height="1000">
+    return f'''<svg id="{key}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-24 -24 1048 1048" width="1000" height="1000">
 <defs>
   <filter id="blur-{key}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="22"/></filter>
   <clipPath id="clipo-{key}"><circle cx="{C}" cy="{C}" r="{R_RING_OUT-2}"/></clipPath>
@@ -126,7 +126,7 @@ def svg(key):
   <path id="tp-{key}" d="{top_path}"/>
   <path id="bp-{key}" d="{bot_path}"/>
 </defs>
-<circle cx="{C}" cy="{C}" r="{R_OUT_OUT}" fill="#fff"/>
+<circle cx="{C}" cy="{C}" r="{R_OUT_OUT + 18}" fill="#fff" stroke="#000" stroke-width="8"/>
 <image href="data:image/png;base64,{b64}" x="{IX:.2f}" y="{IY:.2f}" width="{IW}" height="{IH}" clip-path="url(#clip-{key})" preserveAspectRatio="none"/>
 <g clip-path="url(#clip-{key})" filter="url(#blur-{key})" opacity="0.9">{glow}</g>
 {under}
