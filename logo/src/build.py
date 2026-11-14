@@ -14,6 +14,8 @@ elif STYLE == 'photo':
     up = cv2.imread(f'{SP}/photo/manga_logo.png', 0)
 elif STYLE == 'photo2':
     up = cv2.imread(f'{SP}/photo/manga2_logo.png', 0)
+elif STYLE == 'char':
+    up = cv2.imread(f'{SP}/photo/char_logo.png', 0)
 else:
     up = cv2.resize(src, None, fx=S, fy=S, interpolation=cv2.INTER_CUBIC)
 cv2.imwrite(f'{SP}/clean_up.png', up)
@@ -83,12 +85,12 @@ LABEL = {
     'monka': '門下', 'kaiden': '皆伝', 'hachinoji': '8の字極めます',
 }
 
-if STYLE in ('photo', 'photo2'):
+if STYLE in ('photo', 'photo2', 'char'):
     IX, IY, IW, IH = 0, 0, 1000, 1000
 else:
     IX, IY, IW, IH = P(0,0)[0], P(0,0)[1], src.shape[1]*K, src.shape[0]*K
 
-GLOW_CAP = 26 if STYLE == 'photo2' else 80
+GLOW_CAP = 26 if STYLE in ('photo2', 'char') else 80
 
 _rb = R_RING_OUT - 2
 BRK = (f'M{C},{C} L{C + _rb*math.cos(math.radians(20)):.1f},{C - _rb*math.sin(math.radians(20)):.1f} '
