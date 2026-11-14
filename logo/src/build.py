@@ -47,14 +47,24 @@ def line(chars, a, b, size):
     return out
 
 k1 = P(138, 198); k2 = P(170, 342)   # original 究 / 極 centres
+OVER = {'yoshidajuku', 'menkyokaiden', 'hachinoji'}
+def column(chars, xc, yc, S, scales=None, gap=1.04):
+    scales = scales or [1] * len(chars)
+    hs = [k * S * gap for k in scales]
+    y = yc - sum(hs) / 2
+    out = []
+    for ch, k, h in zip(chars, scales, hs):
+        out.append((ch, xc, y + h / 2, round(S * k)))
+        y += h
+    return out
 VARIANTS = {
     'kyukyoku': line('究極', (272, 390), (334, 690), 282),
     'anzen':    line('安全', (272, 390), (334, 690), 282),
     'takumi':   line('匠', (300, 495), (300, 495), 395),
-    'yoshidajuku': line('吉田塾', (292, 292), (345, 712), 194),
+    'yoshidajuku': column('吉田塾', 316, 504, 188),
     'monkasei':    line('門下生', (292, 292), (345, 712), 194),
-    'menkyokaiden': line('免許', (382, 300), (388, 470), 168) + line('皆伝', (222, 445), (228, 615), 168),
-    'hachinoji': line('8の字', (372, 255), (386, 545), 168) + line('極めます', (212, 345), (244, 712), 124),
+    'menkyokaiden': column('免許皆伝', 330, 504, 152),
+    'hachinoji': column('8の字極めます', 334, 504, 106, [.9, .78, 1, 1, .78, .78, .78]),
 }
 LABEL = {
     'kyukyoku': '究極', 'anzen': '安全', 'takumi': '匠', 'yoshidajuku': '吉田塾',
@@ -72,6 +82,8 @@ def svg(key):
     edge = layer('kje', '', lambda s: 26)
     kanji_o = layer('kjo', '', lambda s: 16)
     kanji = layer('', '', lambda s: -s*0.065)
+    stack = f'<g opacity="0.55">{shadow}</g>{edge}{kanji_o}'
+    under, over = ('', stack) if key in OVER else (f'<g clip-path="url(#clipo-{key})">{stack}</g>', '')
     return f'''<svg id="{key}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 1000" width="1000" height="1000">
 <defs>
   <filter id="blur-{key}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="22"/></filter>
@@ -83,14 +95,14 @@ def svg(key):
 <circle cx="{C}" cy="{C}" r="{R_OUT_OUT}" fill="#fff"/>
 <image href="data:image/png;base64,{b64}" x="{P(0,0)[0]:.2f}" y="{P(0,0)[1]:.2f}" width="{src.shape[1]*K}" height="{src.shape[0]*K}" clip-path="url(#clip-{key})" preserveAspectRatio="none"/>
 <g clip-path="url(#clip-{key})" filter="url(#blur-{key})" opacity="0.9">{glow}</g>
-<g clip-path="url(#clipo-{key})"><g opacity="0.55">{shadow}</g>{edge}{kanji_o}</g>
+{under}
 <g fill="none" stroke="#000">
   <circle cx="{C}" cy="{C}" r="{(R_RING_IN+R_RING_OUT)/2}" stroke-width="{R_RING_OUT-R_RING_IN}"/>
   <circle cx="{C}" cy="{C}" r="{(R_OUT_IN+R_OUT_OUT)/2}" stroke-width="{R_OUT_OUT-R_OUT_IN}"/>
 </g>
 <text class="ring"><textPath href="#tp-{key}" textLength="{top_len:.1f}" lengthAdjust="spacing">KYUKYOKUNO</textPath></text>
 <text class="ring"><textPath href="#bp-{key}" textLength="{bot_len:.1f}" lengthAdjust="spacing">SAFETY&#160;&#160;RIDING</textPath></text>
-{kanji}
+{over}{kanji}
 </svg>'''
 
 html = f'''<!doctype html><html><head><meta charset="utf-8">
