@@ -61,7 +61,7 @@ def line(chars, a, b, size):
     return out
 
 k1 = P(138, 198); k2 = P(170, 342)   # original 究 / 極 centres
-OVER = {'yoshidajuku', 'hachinoji'}
+OVER = {'hachinoji'}
 def column(chars, xc, yc, S, scales=None, gap=1.04):
     scales = scales or [1] * len(chars)
     hs = [k * S * gap for k in scales]
@@ -75,7 +75,7 @@ VARIANTS = {
     'kyukyoku': line('究極', (272, 390), (334, 690), 282),
     'anzen':    line('安全', (272, 390), (334, 690), 282),
     'takumi':   line('匠', (300, 495), (300, 495), 395),
-    'yoshidajuku': column('吉田', 336, 468, 176) + column('塾', 128, 534, 194),
+    'yoshidajuku': line('吉田塾', (282, 290), (342, 712), 212),
     'monka':    line('門下', (272, 390), (334, 690), 282),
     'kaiden':   line('皆伝', (272, 390), (334, 690), 282),
     'hachinoji': column('8の字', 354, 478, 124, [.9, .8, 1]) + column('極めます', 208, 514, 124, [1, .8, .8, .8]),
