@@ -4,9 +4,14 @@ import cv2
 SP = '/tmp/claude-0/-home-user--/67da5411-496e-5744-8c63-efbe275d2058/scratchpad'
 
 # --- illustration: upscale cleaned raster, centre on inner ring centre ---
+import os
+STYLE = os.environ.get('STYLE', 'sketch')
 src = cv2.imread(f'{SP}/clean_nobg.png', 0)
 S = 4
-up = cv2.resize(src, None, fx=S, fy=S, interpolation=cv2.INTER_CUBIC)
+if STYLE == 'manga':
+    up = cv2.imread(f'{SP}/manga.png', 0)
+else:
+    up = cv2.resize(src, None, fx=S, fy=S, interpolation=cv2.INTER_CUBIC)
 cv2.imwrite(f'{SP}/clean_up.png', up)
 b64 = base64.b64encode(open(f'{SP}/clean_up.png', 'rb').read()).decode()
 
@@ -118,6 +123,6 @@ svg{{display:block}}
 </style></head><body>
 {''.join(svg(k) for k in VARIANTS)}
 </body></html>'''
-open(f'{SP}/logos.html', 'w').write(html)
+open(f'{SP}/logos.html' if STYLE == 'sketch' else f'{SP}/logos_{STYLE}.html', 'w').write(html)
 json.dump(LABEL, open(f'{SP}/labels.json', 'w'), ensure_ascii=False)
 print('ok', top_len, bot_len)
