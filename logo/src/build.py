@@ -24,7 +24,8 @@ R_IMG = 381          # illustration clip (inner edge of inner ring)
 R_RING_IN, R_RING_OUT = 381, 406
 R_OUT_IN, R_OUT_OUT = 466, 495
 BAND_MID = (R_RING_OUT + R_OUT_IN) / 2   # 436
-CAP = 46                                   # cap height of ring text
+LS = 22
+CAP = 43                                   # cap height of ring text
 
 def arc(r, a0, a1, sweep):
     # angles in degrees, math convention (0 = right, CCW positive, y up)
@@ -33,8 +34,8 @@ def arc(r, a0, a1, sweep):
     large = 1 if abs(a1 - a0) > 180 else 0
     return f'M{x0:.2f},{y0:.2f} A{r},{r} 0 {large},{sweep} {x1:.2f},{y1:.2f}'
 
-TOP_SPAN = 156   # degrees
-BOT_SPAN = 142
+TOP_SPAN = 200   # degrees
+BOT_SPAN = 200
 r_top = BAND_MID - CAP / 2          # baseline of top text (letters point outward)
 r_bot = BAND_MID + CAP / 2          # baseline of bottom text (letters point inward)
 top_path = arc(r_top, 90 + TOP_SPAN / 2, 90 - TOP_SPAN / 2, 1)      # clockwise over top
@@ -105,8 +106,8 @@ def svg(key):
   <circle cx="{C}" cy="{C}" r="{(R_RING_IN+R_RING_OUT)/2}" stroke-width="{R_RING_OUT-R_RING_IN}"/>
   <circle cx="{C}" cy="{C}" r="{(R_OUT_IN+R_OUT_OUT)/2}" stroke-width="{R_OUT_OUT-R_OUT_IN}"/>
 </g>
-<text class="ring"><textPath href="#tp-{key}" textLength="{top_len:.1f}" lengthAdjust="spacing">KYUKYOKUNO</textPath></text>
-<text class="ring"><textPath href="#bp-{key}" textLength="{bot_len:.1f}" lengthAdjust="spacing">SAFETY&#160;&#160;RIDING</textPath></text>
+<text class="ring"><textPath href="#tp-{key}" startOffset="50%" text-anchor="middle">KYUKYOKUNO</textPath></text>
+<text class="ring"><textPath href="#bp-{key}" startOffset="50%" text-anchor="middle">SAFETY&#160;RIDING</textPath></text>
 {over}{kanji}
 </svg>'''
 
@@ -115,7 +116,7 @@ html = f'''<!doctype html><html><head><meta charset="utf-8">
 <style>
 body{{margin:0;background:transparent}}
 svg{{display:block}}
-.ring{{font-family:'Archivo';font-stretch:125%;font-weight:900;font-size:{CAP*2.04:.1f}px;fill:#000;stroke:#fff;stroke-width:5;paint-order:stroke;stroke-linejoin:round}}
+.ring{{font-family:'Archivo';font-stretch:125%;font-weight:900;font-size:{CAP/0.70:.1f}px;letter-spacing:{LS}px;fill:#000;stroke:#fff;stroke-width:5;paint-order:stroke;stroke-linejoin:round}}
 .kj{{font-family:'Noto Serif JP';font-weight:900;fill:#000;stroke:#000;stroke-linejoin:round;text-anchor:middle;dominant-baseline:central}}
 .kjo{{stroke:#fff;fill:#fff}}
 .kjg{{stroke:#fff;fill:#fff}}
