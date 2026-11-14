@@ -43,16 +43,16 @@ def line(chars, a, b, size):
     out = []
     for i, ch in enumerate(chars):
         t = 0.5 if n == 1 else i / (n - 1)
-        out.append((ch, a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, size))
+        out.append((ch, a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, round(size * 0.86)))
     return out
 
 k1 = P(138, 198); k2 = P(170, 342)   # original 究 / 極 centres
 VARIANTS = {
-    'kyukyoku': line('究極', (260, 385), (330, 690), 290),
-    'anzen':    line('安全', (260, 385), (330, 690), 290),
+    'kyukyoku': line('究極', (272, 390), (334, 690), 282),
+    'anzen':    line('安全', (272, 390), (334, 690), 282),
     'takumi':   line('匠', (300, 495), (300, 495), 395),
-    'yoshidajuku': line('吉田塾', (290, 290), (345, 712), 210),
-    'monkasei':    line('門下生', (290, 290), (345, 712), 210),
+    'yoshidajuku': line('吉田塾', (292, 292), (345, 712), 194),
+    'monkasei':    line('門下生', (292, 292), (345, 712), 194),
     'menkyokaiden': line('免許', (382, 300), (388, 470), 168) + line('皆伝', (222, 445), (228, 615), 168),
     'hachinoji': line('8の字', (372, 255), (386, 545), 168) + line('極めます', (212, 345), (244, 712), 124),
 }
@@ -68,10 +68,10 @@ def svg(key):
             f'<text x="{x+dx:.1f}" y="{y+dy:.1f}" font-size="{s}" class="kj {cls}" stroke-width="{s*0.065+w(s):.1f}"{extra}>{ch}</text>'
             for ch, x, y, s in V)
     glow = layer('kjg', '', lambda s: min(s*0.42, 80))
-    shadow = layer('kjs', '', lambda s: 34, 10, 10)
-    edge = layer('kje', '', lambda s: 34)
-    kanji_o = layer('kjo', '', lambda s: 22)
-    kanji = layer('', '', lambda s: 0)
+    shadow = layer('kjs', '', lambda s: 26, 8, 8)
+    edge = layer('kje', '', lambda s: 26)
+    kanji_o = layer('kjo', '', lambda s: 16)
+    kanji = layer('', '', lambda s: -s*0.065)
     return f'''<svg id="{key}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 1000" width="1000" height="1000">
 <defs>
   <filter id="blur-{key}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="22"/></filter>
@@ -94,12 +94,12 @@ def svg(key):
 </svg>'''
 
 html = f'''<!doctype html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,900&family=Yuji+Boku&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,900&family=Noto+Serif+JP:wght@900&display=block" rel="stylesheet">
 <style>
 body{{margin:0;background:transparent}}
 svg{{display:block}}
 .ring{{font-family:'Archivo';font-stretch:125%;font-weight:900;font-size:{CAP*2.04:.1f}px;fill:#000;stroke:#fff;stroke-width:5;paint-order:stroke;stroke-linejoin:round}}
-.kj{{font-family:'Yuji Boku';fill:#000;stroke:#000;stroke-linejoin:round;text-anchor:middle;dominant-baseline:central}}
+.kj{{font-family:'Noto Serif JP';font-weight:900;fill:#000;stroke:#000;stroke-linejoin:round;text-anchor:middle;dominant-baseline:central}}
 .kjo{{stroke:#fff;fill:#fff}}
 .kjg{{stroke:#fff;fill:#fff}}
 .kjs,.kje{{stroke:#000;fill:#000}}
