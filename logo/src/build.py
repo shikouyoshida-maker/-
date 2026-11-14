@@ -12,6 +12,8 @@ if STYLE == 'manga':
     up = cv2.imread(f'{SP}/manga.png', 0)
 elif STYLE == 'photo':
     up = cv2.imread(f'{SP}/photo/manga_logo.png', 0)
+elif STYLE == 'photo2':
+    up = cv2.imread(f'{SP}/photo/manga2_logo.png', 0)
 else:
     up = cv2.resize(src, None, fx=S, fy=S, interpolation=cv2.INTER_CUBIC)
 cv2.imwrite(f'{SP}/clean_up.png', up)
@@ -79,10 +81,12 @@ LABEL = {
     'monka': '門下', 'kaiden': '皆伝', 'hachinoji': '8の字極めます',
 }
 
-if STYLE == 'photo':
+if STYLE in ('photo', 'photo2'):
     IX, IY, IW, IH = 0, 0, 1000, 1000
 else:
     IX, IY, IW, IH = P(0,0)[0], P(0,0)[1], src.shape[1]*K, src.shape[0]*K
+
+GLOW_CAP = 26 if STYLE == 'photo2' else 80
 
 def svg(key):
     V = VARIANTS[key]
@@ -90,7 +94,7 @@ def svg(key):
         return ''.join(
             f'<text x="{x+dx:.1f}" y="{y+dy:.1f}" font-size="{s}" class="kj {cls}" stroke-width="{s*0.065+w(s):.1f}"{extra}>{ch}</text>'
             for ch, x, y, s in V)
-    glow = layer('kjg', '', lambda s: min(s*0.42, 80))
+    glow = layer('kjg', '', lambda s: min(s*0.42, GLOW_CAP))
     shadow = layer('kjs', '', lambda s: 26, 8, 8)
     edge = layer('kje', '', lambda s: 26)
     kanji_o = layer('kjo', '', lambda s: 16)
