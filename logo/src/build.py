@@ -61,10 +61,10 @@ VARIANTS = {
     'kyukyoku': line('究極', (272, 390), (334, 690), 282),
     'anzen':    line('安全', (272, 390), (334, 690), 282),
     'takumi':   line('匠', (300, 495), (300, 495), 395),
-    'yoshidajuku': column('吉田塾', 316, 504, 188),
+    'yoshidajuku': column('吉田', 336, 468, 176) + column('塾', 128, 534, 194),
     'monkasei':    line('門下生', (292, 292), (345, 712), 194),
-    'menkyokaiden': column('免許皆伝', 330, 504, 152),
-    'hachinoji': column('8の字極めます', 334, 504, 106, [.9, .78, 1, 1, .78, .78, .78]),
+    'menkyokaiden': column('免許', 362, 466, 144) + column('皆伝', 194, 526, 144),
+    'hachinoji': column('8の字', 354, 478, 124, [.9, .8, 1]) + column('極めます', 208, 514, 124, [1, .8, .8, .8]),
 }
 LABEL = {
     'kyukyoku': '究極', 'anzen': '安全', 'takumi': '匠', 'yoshidajuku': '吉田塾',
