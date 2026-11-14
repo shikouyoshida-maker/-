@@ -21,7 +21,9 @@ fg = cv2.GaussianBlur(fg, (0, 0), 1.5)
 A = np.load(f'{SP}/photo/old_to_photo.npy')
 OC = np.array([250.8, 245.9])
 Q = np.array([[0.25, 0, OC[0] - 250], [0, 0.25, OC[1] - 250], [0, 0, 1]])
-M = (A @ Q)[:2]
+SC, AX, AY = 0.89, 620.0, 1000.0          # shrink figure about a point at the bottom of the circle (logo units)
+T = np.array([[1/SC, 0, 2*AX*(1 - 1/SC)], [0, 1/SC, 2*AY*(1 - 1/SC)], [0, 0, 1]])
+M = (A @ Q @ T)[:2]
 N = 2000
 ph = cv2.warpAffine(photo, M, (N, N), flags=cv2.INTER_CUBIC | cv2.WARP_INVERSE_MAP, borderValue=(255, 255, 255))
 m = cv2.warpAffine(fg, M, (N, N), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP).astype(np.float32) / 255
@@ -36,7 +38,7 @@ L = cv2.cvtColor(flat, cv2.COLOR_BGR2GRAY).astype(np.float32)
 # --- clean helmet: fill sticker holes inside the white shell ---
 white = (L > 140).astype(np.uint8)
 closed = cv2.morphologyEx(white, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (61, 61)))
-stickers = (closed > 0) & (white == 0) & (xx > 1330) & (yy < 1080) & (yy > 560)
+stickers = (closed > 0) & (white == 0) & (xx > 2*AX + SC*(1330-2*AX)) & (yy < 2*AY + SC*(1080-2*AY)) & (yy > 2*AY + SC*(560-2*AY))
 stickers = cv2.dilate(stickers.astype(np.uint8), np.ones((9, 9), np.uint8)) > 0
 L[stickers] = 200
 
@@ -54,7 +56,7 @@ def dots(P, rad):
 
 # visor: bluish tinted plastic -> light tone
 B_, G_, R_ = [ph[:, :, i].astype(int) for i in range(3)]
-visor = (B_ - R_ > 14) & (mb > 0) & (yy < 740) & (xx < 1380) & (L >= TONE)
+visor = (B_ - R_ > 14) & (mb > 0) & (yy < 2*AY + SC*(740-2*AY)) & (xx < 2*AX + SC*(1380-2*AX)) & (L >= TONE)
 visor = cv2.morphologyEx(visor.astype(np.uint8), cv2.MORPH_OPEN, np.ones((7, 7), np.uint8)) > 0
 out = np.full((N, N), 255, np.float32)
 out[visor & dots(11.0, 2.4)] = 0
@@ -76,7 +78,7 @@ ink = keep[lab]
 shell = cv2.erode((closed > 0).astype(np.uint8), np.ones((25, 25), np.uint8)) > 0
 n, lab, st, _ = cv2.connectedComponentsWithStats((ink & shell).astype(np.uint8))
 small = np.zeros(n, bool); small[1:] = st[1:, cv2.CC_STAT_AREA] < 1500
-ink[small[lab] & shell & (xx > 1250)] = False
+ink[small[lab] & shell & (xx > 2*AX + SC*(1250-2*AX))] = False
 out[ink] = 0
 
 # --- gloss highlights on black parts (white streaks where the photo is bright inside black areas) ---
@@ -92,6 +94,7 @@ out[edge > 0] = 0
 
 # --- bold focus lines ---
 fx, fy = 1000 + 4 * (262 - OC[0]), 1000 + 4 * (200 - OC[1])
+fx, fy = 2*AX + SC*(fx - 2*AX), 2*AY + SC*(fy - 2*AY)
 rng = np.random.default_rng(11)
 fl = np.zeros((N, N), np.uint8)
 n = 120
@@ -111,3 +114,8 @@ res = out.clip(0, 255).astype(np.uint8)
 cv2.imwrite(f'{SP}/photo/manga2_logo.png', res)
 cv2.imwrite(f'{SP}/photo/manga2_view.png', cv2.resize(res, (1000, 1000), interpolation=cv2.INTER_AREA))
 cv2.imwrite(f'{SP}/photo/face2_zoom.png', res[500:1300, 850:1650])
+
+# --- person-only RGBA (for breaking out over the inner ring) ---
+_a = cv2.dilate((m > 0.5).astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (17, 17))) * 255
+_o = out.clip(0, 255).astype(np.uint8)
+cv2.imwrite(f'{SP}/photo/manga2_person.png', cv2.merge([_o, _o, _o, _a]))

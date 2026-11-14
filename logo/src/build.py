@@ -18,6 +18,8 @@ else:
     up = cv2.resize(src, None, fx=S, fy=S, interpolation=cv2.INTER_CUBIC)
 cv2.imwrite(f'{SP}/clean_up.png', up)
 b64 = base64.b64encode(open(f'{SP}/clean_up.png', 'rb').read()).decode()
+PERSON = None
+pb64 = base64.b64encode(open(f'{SP}/photo/{PERSON}', 'rb').read()).decode() if PERSON else ''
 
 C = 500.0                    # new centre
 OC = (250.8, 245.9)          # inner-ring centre in original
@@ -88,6 +90,10 @@ else:
 
 GLOW_CAP = 26 if STYLE == 'photo2' else 80
 
+_rb = R_RING_OUT - 2
+BRK = (f'M{C},{C} L{C + _rb*math.cos(math.radians(20)):.1f},{C - _rb*math.sin(math.radians(20)):.1f} '
+       f'A{_rb},{_rb} 0 0,0 {C + _rb*math.cos(math.radians(160)):.1f},{C - _rb*math.sin(math.radians(160)):.1f} Z')
+
 def svg(key):
     V = VARIANTS[key]
     def layer(cls, extra, w, dx=0, dy=0):
@@ -100,12 +106,15 @@ def svg(key):
     kanji_o = layer('kjo', '', lambda s: 16)
     kanji = layer('', '', lambda s: -s*0.065)
     stack = f'<g opacity="0.55">{shadow}</g>{edge}{kanji_o}'
+    brk = (f'<image href="data:image/png;base64,{pb64}" x="0" y="0" width="1000" height="1000" '
+           f'clip-path="url(#brk-{key})" preserveAspectRatio="none"/>') if PERSON else ''
     under, over = ('', stack) if key in OVER else (f'<g clip-path="url(#clipo-{key})">{stack}</g>', '')
     return f'''<svg id="{key}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 1000" width="1000" height="1000">
 <defs>
   <filter id="blur-{key}" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="22"/></filter>
   <clipPath id="clipo-{key}"><circle cx="{C}" cy="{C}" r="{R_RING_OUT-2}"/></clipPath>
   <clipPath id="clip-{key}"><circle cx="{C}" cy="{C}" r="{R_IMG}"/></clipPath>
+  <clipPath id="brk-{key}"><path d="{BRK}"/></clipPath>
   <path id="tp-{key}" d="{top_path}"/>
   <path id="bp-{key}" d="{bot_path}"/>
 </defs>
@@ -117,7 +126,7 @@ def svg(key):
   <circle cx="{C}" cy="{C}" r="{(R_RING_IN+R_RING_OUT)/2}" stroke-width="{R_RING_OUT-R_RING_IN}"/>
   <circle cx="{C}" cy="{C}" r="{(R_OUT_IN+R_OUT_OUT)/2}" stroke-width="{R_OUT_OUT-R_OUT_IN}"/>
 </g>
-<text class="ring"><textPath href="#tp-{key}" startOffset="50%" text-anchor="middle">KYUKYOKUNO</textPath></text>
+{brk}<text class="ring"><textPath href="#tp-{key}" startOffset="50%" text-anchor="middle">KYUKYOKUNO</textPath></text>
 <text class="ring"><textPath href="#bp-{key}" startOffset="50%" text-anchor="middle">SAFETY&#160;RIDING</textPath></text>
 {over}{kanji}
 </svg>'''
