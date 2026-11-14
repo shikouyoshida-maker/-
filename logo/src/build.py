@@ -15,7 +15,7 @@ elif STYLE == 'photo':
 elif STYLE == 'photo2':
     up = cv2.imread(f'{SP}/photo/manga2_logo.png', 0)
 elif STYLE == 'char':
-    up = cv2.imread(f'{SP}/photo/char_logo.png', 0)
+    up = cv2.imread(f'{SP}/photo/char_helmet_logo.png', 0)
 else:
     up = cv2.resize(src, None, fx=S, fy=S, interpolation=cv2.INTER_CUBIC)
 cv2.imwrite(f'{SP}/clean_up.png', up)
