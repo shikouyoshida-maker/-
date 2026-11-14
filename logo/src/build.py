@@ -4,7 +4,7 @@ import cv2
 SP = '/tmp/claude-0/-home-user--/67da5411-496e-5744-8c63-efbe275d2058/scratchpad'
 
 # --- illustration: upscale cleaned raster, centre on inner ring centre ---
-src = cv2.imread(f'{SP}/clean.png', 0)
+src = cv2.imread(f'{SP}/clean_nobg.png', 0)
 S = 4
 up = cv2.resize(src, None, fx=S, fy=S, interpolation=cv2.INTER_CUBIC)
 cv2.imwrite(f'{SP}/clean_up.png', up)
