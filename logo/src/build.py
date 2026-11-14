@@ -73,6 +73,11 @@ def column(chars, xc, yc, S, scales=None, gap=1.04):
     return out
 VARIANTS = {
     'kyukyoku': line('究極', (272, 390), (334, 690), 282),
+    'yokozuna': line('横綱', (272, 390), (334, 690), 282),
+    'ozeki': line('大関', (272, 390), (334, 690), 282),
+    'komusubi': line('小結', (272, 390), (334, 690), 282),
+    'makuuchi': line('幕内', (272, 390), (334, 690), 282),
+    'makushita': line('幕下', (272, 390), (334, 690), 282),
     'anzen':    line('安全', (272, 390), (334, 690), 282),
     'takumi':   line('匠', (300, 495), (300, 495), 395),
     'yoshidajuku': line('吉田塾', (300, 284), (338, 726), 232),
@@ -81,6 +86,7 @@ VARIANTS = {
     'hachinoji': column('8の字', 354, 478, 124, [.9, .8, 1]) + column('極めます', 208, 514, 124, [1, .8, .8, .8]),
 }
 LABEL = {
+    'yokozuna': '横綱', 'ozeki': '大関', 'komusubi': '小結', 'makuuchi': '幕内', 'makushita': '幕下',
     'kyukyoku': '究極', 'anzen': '安全', 'takumi': '匠', 'yoshidajuku': '吉田塾',
     'monka': '門下', 'kaiden': '皆伝', 'hachinoji': '8の字極めます',
 }
