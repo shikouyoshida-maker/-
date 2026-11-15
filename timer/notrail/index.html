@@ -97,7 +97,7 @@ td button{padding:6px 10px;min-height:36px;font-size:13px}
         <label>最短走行時間（秒）<input type="number" id="minRun" value="5" min="1" step="0.5" inputmode="decimal"></label>
         <label>停止とみなす時間（秒）<input type="number" id="hold" value="1" min="0.3" step="0.1" inputmode="decimal"></label>
       </div>
-      <p class="hint">停止後、止まった瞬間までさかのぼってタイムを確定します。誤スタートが多いときは感度を下げてください。</p>
+      <p class="hint">計測中は映像の下に「動き」「在」のメーターが出ます。白い線を超えると赤くなります。スタート：枠の「動き」が白線を超えた瞬間。ストップ：バイクが枠に戻って「在」が白線を超え、「動き」が白線より下のまま決めた秒数たったとき（止まった瞬間までさかのぼって確定）。誤スタートするときは感度を下げ、スタートしないときは上げてください。</p>
     </details>
   </div>
 
@@ -200,7 +200,7 @@ $('stage').addEventListener('pointerup',()=>{if(drag){drag=null;ls.set('roi',roi
 // ---------- arm / manual / cancel ----------
 $('btnArm').onclick=()=>{ if(state==='armed'){state='preview';setPill('','準備OK');stopRecorder(false);updateButtons();return;} arm(); };
 function arm(){
-  state='armed'; armHits=0; points=[]; emptyRef=null; quietFrames=0; lastRoiMove=0; prev=null;
+  state='armed'; armHits=0; points=[]; emptyRef=null; quietFrames=0; lastRoiMove=0; prev=null; armAt=performance.now(); stillSince=0; armRef=null; lowSince=0;
   snapshot=document.createElement('canvas'); snapshot.width=640; snapshot.height=360;
   snapshot.getContext('2d').drawImage(video,0,0,640,360);
   startRecorder(); $('clock').textContent='0.000';
@@ -257,33 +257,53 @@ function loop(){
   const step=(now)=>{ analyse(now); requestAnimationFrame(step); };
   requestAnimationFrame(step);
 }
+let armAt=0, stillSince=0, meter={move:0,occ:0,msg:''};
 function analyse(now){
   if(!video.videoWidth)return;
   pctx.drawImage(video,0,0,PW,PH);
   const d=pctx.getImageData(0,0,PW,PH).data; cur=new Uint8Array(PW*PH);
-  for(let i=0,j=0;i<cur.length;i++,j+=4)cur[i]=(d[j]*77+d[j+1]*150+d[j+2]*29)>>8;
+  let gm=0; for(let i=0,j=0;i<cur.length;i++,j+=4){cur[i]=(d[j]*77+d[j+1]*150+d[j+2]*29)>>8; gm+=cur[i];} gm/=cur.length;
   let roiMove=0,roiN=0,sx=0,sy=0,n=0;
-  if(prev){const thr=pixThr(),r=roiPx();
-    for(let y=0;y<PH;y++)for(let x=0;x<PW;x++){const i=y*PW+x;const m=Math.abs(cur[i]-prev[i])>thr;
+  if(prev){const thr=pixThr(),r=roiPx(),off=gm-prevMean;   // off: whole-picture brightness change (auto exposure)
+    for(let y=0;y<PH;y++)for(let x=0;x<PW;x++){const i=y*PW+x;const m=Math.abs(cur[i]-prev[i]-off)>thr;
       const inR=x>=r.x0&&x<r.x1&&y>=r.y0&&y<r.y1; if(inR){roiN++;if(m)roiMove++;}
       if(m){sx+=x;sy+=y;n++;}}}
-  const roiFrac=roiN?roiMove/roiN:0;
-  if(state==='armed'){ armHits=roiFrac>0.05?armHits+1:0; if(armHits>=2)beginRun(now-16); }
-  else if(state==='run'){
+  const move=roiN?roiMove/roiN:0; meter.move=move;
+  const sens=+$('sens').value, startThr=0.14-sens*0.012;          // 感度6 → 枠の約7%が止まっていた姿から変わったらスタート
+  if(state==='armed'){
+    meter.msg='発進待ち';
+    if(now-armAt<800){armRef=null;lowSince=0;meter.move=0;}         // ignore exposure settling right after arming
+    else if(!armRef){armRef=roiGray(cur);armMean=avg(armRef);refAge=0;}
+    else{ // how much of the box differs from the standing bike (brightness change removed)
+      const g=roiGray(cur),dm=avg(g)-armMean;let c=0;for(let i=0;i<g.length;i++)if(Math.abs(g[i]-armRef[i]-dm)>pixThr())c++;
+      const frac=c/g.length; meter.move=frac;
+      if(frac>0.02){ if(!lowSince)lowSince=now; } else { lowSince=0; if(++refAge>45){armRef=g;armMean=avg(g);refAge=0;} }
+      if(frac>startThr&&++armHits>=2)beginRun(lowSince||now); else if(frac<=startThr)armHits=0;
+    }
+  } else if(state==='run'){
     const el=now-startT; $('clock').textContent=fmt(el);
     if(n>12){const p={x:sx/n/PW,y:sy/n/PH,t:el};const l=points[points.length-1];
       points.push(l?{x:l.x*.6+p.x*.4,y:l.y*.6+p.y*.4,t:el}:p);}
-    // learn what the empty start box looks like once the bike has left it
-    if(!emptyRef&&el>1500){quietFrames=roiFrac<0.01?quietFrames+1:0; if(quietFrames>12){emptyRef=roiGray(cur);emptyAt=now;}}
-    if(roiFrac>0.01)lastRoiMove=now;
-    const minRun=+$('minRun').value*1000, hold=+$('hold').value*1000;
-    if(emptyRef&&el>minRun&&lastRoiMove>emptyAt&&now-lastRoiMove>hold){
-      const g=roiGray(cur);let s=0;for(let i=0;i<g.length;i++)s+=Math.abs(g[i]-emptyRef[i]);
-      if(s/g.length>14)endRun(lastRoiMove);   // bike is back in the box and has stopped
+    // 1) remember the empty start box once the bike has left it
+    if(!emptyRef){ quietFrames=(el>800&&move<0.03)?quietFrames+1:0;
+      if(quietFrames>=15){emptyRef=roiGray(cur);emptyMean=avg(emptyRef);} meter.msg='バイクが枠から出るのを待っています'; meter.occ=0; }
+    else{
+      // 2) is something (the bike) in the box now? compare with the empty box, ignoring brightness change
+      const g=roiGray(cur),gmn=avg(g),dm=gmn-emptyMean;let c=0;
+      for(let i=0;i<g.length;i++)if(Math.abs(g[i]-emptyRef[i]-dm)>28)c++;
+      const occ=c/g.length; meter.occ=occ;
+      const minRun=+$('minRun').value*1000, hold=+$('hold').value*1000;
+      if(el<minRun){meter.msg='走行中';stillSince=0;}
+      else if(occ>0.18){
+        if(move<0.05){ if(!stillSince)stillSince=now; meter.msg='停止を確認中'; if(now-stillSince>=hold)endRun(stillSince); }
+        else { stillSince=0; meter.msg='ゴール枠に進入'; }
+      } else {stillSince=0; meter.msg='走行中';}
     }
-  }
-  prev=cur; drawOverlay();
+  } else meter.msg='';
+  prev=cur; prevMean=gm; drawOverlay();
 }
+const avg=a=>{let t=0;for(let i=0;i<a.length;i++)t+=a[i];return a.length?t/a.length:0;};
+let prevMean=0, firstHit=0, emptyMean=0, armRef=null, armMean=0, lowSince=0, refAge=0;
 function drawOverlay(){
   const r=$('stage').getBoundingClientRect();const dpr=Math.min(2,window.devicePixelRatio||1);
   if(ov.width!==Math.round(r.width*dpr)){ov.width=Math.round(r.width*dpr);ov.height=Math.round(r.height*dpr);}
@@ -295,6 +315,16 @@ function drawOverlay(){
   octx.fillStyle=col;octx.fillRect((roi.x+roi.w)*w-9*dpr,(roi.y+roi.h)*h-9*dpr,18*dpr,18*dpr);
   octx.font=`bold ${13*dpr}px system-ui`;octx.fillText('スタート／ゴール',roi.x*w+4*dpr,roi.y*h-6*dpr);
   if(TRAIL&&(state==='run'||state==='done'))drawTrail(octx,w,h,points,3*dpr);
+  if(state==='armed'||state==='run'){ // live meters so the rider can see what the camera decides
+    const bw=Math.min(w*0.42,180*dpr),bh=8*dpr,x0=8*dpr;let y0=h-48*dpr;
+    octx.fillStyle='rgba(0,0,0,.55)';octx.fillRect(0,y0-18*dpr,w,66*dpr);
+    octx.font=`bold ${12*dpr}px system-ui`;octx.fillStyle='#fff';octx.fillText(meter.msg,x0,y0-4*dpr);
+    const bar=(label,v,mark,y)=>{octx.fillStyle='#fff';octx.fillText(label,x0,y+bh);octx.fillStyle='rgba(255,255,255,.25)';octx.fillRect(x0+40*dpr,y,bw,bh);
+      octx.fillStyle=v>=mark?'#ff3b30':'#2fc067';octx.fillRect(x0+40*dpr,y,bw*Math.min(1,v/(mark*2)),bh);octx.fillStyle='#fff';octx.fillRect(x0+40*dpr+bw/2-1*dpr,y-2*dpr,2*dpr,bh+4*dpr);};
+    const sens=+$('sens').value;
+    bar('動き',meter.move,state==='armed'?0.14-sens*0.012:0.05,y0+6*dpr);
+    if(state==='run')bar('在',meter.occ,0.18,y0+24*dpr);
+  }
   octx.restore();
 }
 
