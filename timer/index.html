@@ -1,11 +1,13 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" data-trail="1">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#101418">
 <title>吉田塾ラップタイマー</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="logo.png">
 <style>
 /* Layout: one-column field tool — camera on top, big controls under it, run log below. Outdoor-first: high contrast. */
 :root{
@@ -21,11 +23,14 @@
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);-webkit-text-size-adjust:100%}
 body{padding:env(safe-area-inset-top) max(12px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
-h1{font-size:18px;margin:10px 0 8px;letter-spacing:.04em}
+h1{font-size:18px;margin:0;letter-spacing:.04em;display:flex;flex-direction:column;gap:2px}
+h1 small{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0}
+.brand{display:flex;align-items:center;gap:12px;margin:10px 0 4px}
+.brand img{width:64px;height:64px;flex:none}
 h2{font-size:16px;margin:22px 0 8px}
 .wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
-.stage{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;touch-action:none}
-.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.stage{position:relative;width:100%;aspect-ratio:16/9;margin:0 auto;max-height:62vh;background:#000;border-radius:10px;overflow:hidden;touch-action:none}
+.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:fill}
 .clock{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:clamp(44px,13vw,96px);font-weight:700;text-align:center;line-height:1;padding:6px 0}
 .status{display:flex;justify-content:center;align-items:center;gap:8px;font-weight:700;font-size:15px}
 .pill{padding:4px 12px;border-radius:999px;background:var(--line);color:var(--fg)}
@@ -59,7 +64,7 @@ td button{padding:6px 10px;min-height:36px;font-size:13px}
 </head>
 <body>
 <div class="wrap">
-  <h1>吉田塾ラップタイマー</h1>
+  <header class="brand"><img src="logo.png" alt="KYUKYOKUNO SAFETY RIDING 吉田塾" width="64" height="64"><h1>吉田塾ラップタイマー<small id="modeLabel"></small></h1></header>
 
   <div class="stage" id="stage">
     <video id="video" playsinline muted autoplay></video>
@@ -127,6 +132,7 @@ td button{padding:6px 10px;min-height:36px;font-size:13px}
 'use strict';
 const $ = id => document.getElementById(id);
 const video=$('video'), ov=$('overlay'), octx=ov.getContext('2d');
+const TRAIL=document.documentElement.dataset.trail!=='0';
 const PW=160, PH=90;                       // analysis resolution
 const pc=document.createElement('canvas'); pc.width=PW; pc.height=PH;
 const pctx=pc.getContext('2d',{willReadFrequently:true});
@@ -176,9 +182,11 @@ document.addEventListener('visibilitychange',async()=>{if(document.visibilitySta
 
 // ---------- ROI dragging ----------
 let drag=null;
-function vRect(){ // displayed video rect inside stage (object-fit:contain)
-  const s=$('stage').getBoundingClientRect(), vw=video.videoWidth||16, vh=video.videoHeight||9;
-  const sc=Math.min(s.width/vw,s.height/vh), w=vw*sc, h=vh*sc; return {l:s.left+(s.width-w)/2,t:s.top+(s.height-h)/2,w,h};}
+function vRect(){const s=$('stage').getBoundingClientRect();return {l:s.left,t:s.top,w:s.width,h:s.height};}
+function fitStage(){ // make the box the same shape as the camera image (portrait or landscape)
+  const vw=video.videoWidth,vh=video.videoHeight; if(!vw||!vh)return; const st=$('stage');
+  st.style.aspectRatio=vw+'/'+vh; st.style.width=vh>vw?`min(100%, calc(62vh * ${vw/vh}))`:'100%';}
+video.addEventListener('loadedmetadata',fitStage); video.addEventListener('resize',fitStage);
 $('stage').addEventListener('pointerdown',e=>{if(state==='run')return;const r=vRect();const nx=(e.clientX-r.l)/r.w,ny=(e.clientY-r.t)/r.h;
   const inside=nx>roi.x&&nx<roi.x+roi.w&&ny>roi.y&&ny<roi.y+roi.h;
   const corner=Math.abs(nx-(roi.x+roi.w))<.06&&Math.abs(ny-(roi.y+roi.h))<.08;
@@ -220,14 +228,15 @@ async function endRun(t){
   setPill('done','記録 '+fmt(ms)+' 秒','保存中…'); updateButtons();
   await new Promise(r=>setTimeout(r,1200));
   const blob=await stopRecorder(true);
-  const trail=await drawTrailImage();
+  const trail=TRAIL?await drawTrailImage():null;
   const run={id:Date.now(),date:new Date().toISOString(),rider:$('rider').value.trim(),course:$('course').value.trim(),
-    ms:Math.round(ms),video:blob,videoType:blob?blob.type:'',trail,startOffset:(startT-recStart)/1000,stopOffset:(stopT-recStart)/1000,points};
-  try{await putRun(run);setPill('done','記録 '+fmt(ms)+' 秒','保存しました');}catch(e){setPill('done','記録 '+fmt(ms)+' 秒','保存できませんでした（容量不足の可能性）');}
+    ms:Math.round(ms),video:blob?await blob.arrayBuffer():null,videoType:blob?blob.type:'',trail:trail?await trail.arrayBuffer():null,startOffset:(startT-recStart)/1000,stopOffset:(stopT-recStart)/1000,points};
+  try{await putRun(run);setPill('done','記録 '+fmt(ms)+' 秒','保存しました');}catch(e){try{run.video=null;await putRun(run);setPill('done','記録 '+fmt(ms)+' 秒','タイムだけ保存しました（動画は保存できませんでした：'+(e&&e.name||'')+'）');}catch(e2){setPill('done','記録 '+fmt(ms)+' 秒','保存できませんでした：'+(e2&&(e2.name+' '+e2.message)||''));}}
   state='preview'; updateButtons(); render();
 }
 
 // ---------- trail ----------
+const logoImg=new Image(); logoImg.src='logo.png';
 function drawTrail(ctx,w,h,pts,lw){
   if(pts.length<2)return; ctx.lineJoin='round';ctx.lineCap='round';
   ctx.strokeStyle='rgba(0,0,0,.6)';ctx.lineWidth=lw+3;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x*w,p.y*h):ctx.moveTo(p.x*w,p.y*h));ctx.stroke();
@@ -239,7 +248,7 @@ function drawTrail(ctx,w,h,pts,lw){
 function drawTrailImage(){return new Promise(res=>{
   const c=document.createElement('canvas');c.width=640;c.height=360;const x=c.getContext('2d');
   if(snapshot)x.drawImage(snapshot,0,0); x.fillStyle='rgba(255,255,255,.25)';x.fillRect(0,0,640,360);
-  drawTrail(x,640,360,points,4); x.fillStyle='#fff';x.font='bold 22px system-ui';x.strokeStyle='#000';x.lineWidth=4;
+  drawTrail(x,640,360,points,4); if(logoImg.complete&&logoImg.naturalWidth)x.drawImage(logoImg,640-98,360-98,90,90); x.fillStyle='#fff';x.font='bold 22px system-ui';x.strokeStyle='#000';x.lineWidth=4;
   const label=fmt(stopT-startT)+' 秒  '+new Date().toLocaleString('ja-JP');x.strokeText(label,12,30);x.fillText(label,12,30);
   c.toBlob(b=>res(b),'image/jpeg',.85);});}
 
@@ -285,7 +294,7 @@ function drawOverlay(){
   octx.strokeStyle=col;octx.lineWidth=3*dpr;octx.setLineDash([10*dpr,6*dpr]);octx.strokeRect(roi.x*w,roi.y*h,roi.w*w,roi.h*h);octx.setLineDash([]);
   octx.fillStyle=col;octx.fillRect((roi.x+roi.w)*w-9*dpr,(roi.y+roi.h)*h-9*dpr,18*dpr,18*dpr);
   octx.font=`bold ${13*dpr}px system-ui`;octx.fillText('スタート／ゴール',roi.x*w+4*dpr,roi.y*h-6*dpr);
-  if(state==='run'||state==='done')drawTrail(octx,w,h,points,3*dpr);
+  if(TRAIL&&(state==='run'||state==='done'))drawTrail(octx,w,h,points,3*dpr);
   octx.restore();
 }
 
@@ -308,11 +317,13 @@ $('filter').onchange=render;
 $('tbody').addEventListener('click',e=>{const b=e.target.closest('button[data-id]');if(b)openRun(+b.dataset.id);});
 
 let openId=null,urls=[];
+const vblob=r=>r.video?(r.video instanceof Blob?r.video:new Blob([r.video],{type:r.videoType||'video/mp4'})):null;
+const tblob=r=>r.trail?(r.trail instanceof Blob?r.trail:new Blob([r.trail],{type:'image/jpeg'})):null;
 function openRun(id){
   const r=runsCache.find(x=>x.id===id);if(!r)return;openId=id;urls.forEach(URL.revokeObjectURL);urls=[];
   const pv=$('pv');
-  if(r.video){const u=URL.createObjectURL(r.video);urls.push(u);pv.src=u;pv.hidden=false;}else{pv.removeAttribute('src');pv.hidden=true;}
-  if(r.trail){const u=URL.createObjectURL(r.trail);urls.push(u);$('pTrail').src=u;}
+  if(r.video){const u=URL.createObjectURL(vblob(r));urls.push(u);pv.src=u;pv.hidden=false;}else{pv.removeAttribute('src');pv.hidden=true;}
+  const tb=tblob(r);$('pTrail').hidden=!tb;$('pTrailSave').hidden=!tb;if(tb){const u=URL.createObjectURL(tb);urls.push(u);$('pTrail').src=u;}
   $('pInfo').textContent=`${new Date(r.date).toLocaleString('ja-JP')}　${r.rider||''}　${r.course||''}　タイム ${fmt(r.ms)} 秒`;
   pv.ontimeupdate=()=>{const t=pv.currentTime;$('pvLap').textContent=t<r.startOffset?'0.000':t>r.stopOffset?fmt(r.ms):fmt((t-r.startOffset)*1000);};
   pv.onloadedmetadata=()=>{try{pv.currentTime=Math.max(0,r.startOffset-1)}catch(e){}};
@@ -327,12 +338,13 @@ async function share(blob,name){
   const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
 }
 const stamp=r=>new Date(r.date).toISOString().slice(0,19).replace(/[-:T]/g,'');
-$('pSave').onclick=()=>{const r=runsCache.find(x=>x.id===openId);if(r&&r.video)share(r.video,`run_${stamp(r)}_${fmt(r.ms)}s.${r.videoType.includes('mp4')?'mp4':'webm'}`);};
-$('pTrailSave').onclick=()=>{const r=runsCache.find(x=>x.id===openId);if(r&&r.trail)share(r.trail,`trail_${stamp(r)}_${fmt(r.ms)}s.jpg`);};
+$('pSave').onclick=()=>{const r=runsCache.find(x=>x.id===openId);if(r&&r.video)share(vblob(r),`run_${stamp(r)}_${fmt(r.ms)}s.${r.videoType.includes('mp4')?'mp4':'webm'}`);};
+$('pTrailSave').onclick=()=>{const r=runsCache.find(x=>x.id===openId);if(r&&r.trail)share(tblob(r),`trail_${stamp(r)}_${fmt(r.ms)}s.jpg`);};
 $('btnCsv').onclick=()=>{const rows=[['日時','ライダー','コース','タイム(秒)']].concat(runsCache.map(r=>[new Date(r.date).toLocaleString('ja-JP'),r.rider,r.course,fmt(r.ms)]));
   const csv='﻿'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');
   share(new Blob([csv],{type:'text/csv'}),'lap_times.csv');};
 
+$('modeLabel').textContent=TRAIL?'軌跡あり':'軌跡なし（タイム＋動画）';
 render(); updateButtons(); drawOverlay();
 })();
 </script>

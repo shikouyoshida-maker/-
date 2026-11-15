@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ja" data-trail="0">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#101418">
+<title>吉田塾ラップタイマー（軌跡なし）</title>
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="icon" href="../logo.png">
+<style>
+/* Layout: one-column field tool — camera on top, big controls under it, run log below. Outdoor-first: high contrast. */
+:root{
+  --bg:#f3f5f7; --panel:#ffffff; --fg:#14181c; --muted:#5b6670; --line:#d5dbe0;
+  --accent:#d6261c; --go:#138a3e; --warn:#b26a00; --ink:#000;
+  --font:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0e1215; --panel:#171c21; --fg:#eef2f5; --muted:#9aa6b0; --line:#2a323a;
+  --accent:#ff4a3d; --go:#2fc067; --warn:#e6a23c; --ink:#fff; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);-webkit-text-size-adjust:100%}
+body{padding:env(safe-area-inset-top) max(12px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+h1{font-size:18px;margin:0;letter-spacing:.04em;display:flex;flex-direction:column;gap:2px}
+h1 small{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0}
+.brand{display:flex;align-items:center;gap:12px;margin:10px 0 4px}
+.brand img{width:64px;height:64px;flex:none}
+h2{font-size:16px;margin:22px 0 8px}
+.wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.stage{position:relative;width:100%;aspect-ratio:16/9;margin:0 auto;max-height:62vh;background:#000;border-radius:10px;overflow:hidden;touch-action:none}
+.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:fill}
+.clock{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:clamp(44px,13vw,96px);font-weight:700;text-align:center;line-height:1;padding:6px 0}
+.status{display:flex;justify-content:center;align-items:center;gap:8px;font-weight:700;font-size:15px}
+.pill{padding:4px 12px;border-radius:999px;background:var(--line);color:var(--fg)}
+.pill.armed{background:var(--warn);color:#fff}.pill.run{background:var(--accent);color:#fff}.pill.done{background:var(--go);color:#fff}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.row>*{flex:1 1 140px}
+button{font:inherit;font-weight:700;font-size:16px;padding:14px 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg);min-height:52px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.go{background:var(--go);border-color:var(--go);color:#fff}
+button:disabled{opacity:.45}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+input,select{font:inherit;font-size:16px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.hint{font-size:13px;color:var(--muted);margin:0;line-height:1.6}
+details summary{cursor:pointer;font-weight:700}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+td.t{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700;font-size:16px}
+td button{padding:6px 10px;min-height:36px;font-size:13px}
+.best{color:var(--go)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));z-index:20}
+.modal .box{background:var(--panel);border-radius:12px;max-width:900px;width:100%;max-height:100%;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.modal video,.modal img{width:100%;border-radius:8px;background:#000}
+.ovt{position:relative}
+.ovt .lap{position:absolute;right:10px;top:8px;font-family:var(--mono);font-size:28px;font-weight:700;color:#fff;text-shadow:0 0 4px #000,0 0 8px #000}
+.err{color:var(--accent);font-weight:700}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="brand"><img src="../logo.png" alt="KYUKYOKUNO SAFETY RIDING 吉田塾" width="64" height="64"><h1>吉田塾ラップタイマー<small id="modeLabel"></small></h1></header>
+
+  <div class="stage" id="stage">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <div class="status"><span class="pill" id="pill">カメラ未起動</span><span id="sub" class="hint"></span></div>
+  <div class="clock" id="clock">0.000</div>
+
+  <div class="row">
+    <button class="go" id="btnCam">カメラ起動</button>
+    <button class="primary" id="btnArm" disabled>計測準備</button>
+  </div>
+  <div class="row">
+    <button id="btnManual" disabled>手動スタート／ストップ</button>
+    <button id="btnCancel" disabled>取り消し</button>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <label>ライダー名<input id="rider" list="riderList" placeholder="例：山田"></label>
+      <label>コース<input id="course" list="courseList" placeholder="例：8の字 Cパターン"></label>
+    </div>
+    <datalist id="riderList"></datalist><datalist id="courseList"></datalist>
+    <p class="hint">① スタート位置の真後ろに三脚でスマホを固定 → ② 画面の枠をドラッグしてバイクに合わせる → ③「計測準備」。発進した瞬間に自動スタートし、枠に戻って止まると自動ストップします。</p>
+    <details>
+      <summary>判定の調整</summary>
+      <div class="row" style="margin-top:10px">
+        <label>動きの感度 <span id="sensV"></span><input type="range" id="sens" min="1" max="10" value="6"></label>
+        <label>最短走行時間（秒）<input type="number" id="minRun" value="5" min="1" step="0.5" inputmode="decimal"></label>
+        <label>停止とみなす時間（秒）<input type="number" id="hold" value="1" min="0.3" step="0.1" inputmode="decimal"></label>
+      </div>
+      <p class="hint">停止後、止まった瞬間までさかのぼってタイムを確定します。誤スタートが多いときは感度を下げてください。</p>
+    </details>
+  </div>
+
+  <h2>計測記録</h2>
+  <div class="row">
+    <label>ライダーで絞り込み<select id="filter"><option value="">すべて</option></select></label>
+    <button id="btnCsv">表をCSVで保存</button>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>日時</th><th>ライダー</th><th>コース</th><th>タイム</th><th></th></tr></thead>
+    <tbody id="tbody"><tr><td colspan="5" class="hint">まだ記録はありません。計測すると、ここに日時順で並びます。</td></tr></tbody>
+  </table></div>
+  <p class="hint">記録と動画はこのスマホの中（ブラウザ）に保存されます。大事な動画は「動画を保存」で写真アプリに残してください。</p>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="box">
+    <div class="ovt"><video id="pv" controls playsinline></video><div class="lap" id="pvLap"></div></div>
+    <img id="pTrail" alt="走行ライン">
+    <div id="pInfo" class="hint"></div>
+    <div class="row">
+      <button id="pSave">動画を保存</button>
+      <button id="pTrailSave">軌跡を保存</button>
+      <button id="pDel">この記録を削除</button>
+      <button class="primary" id="pClose">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const video=$('video'), ov=$('overlay'), octx=ov.getContext('2d');
+const TRAIL=document.documentElement.dataset.trail!=='0';
+const PW=160, PH=90;                       // analysis resolution
+const pc=document.createElement('canvas'); pc.width=PW; pc.height=PH;
+const pctx=pc.getContext('2d',{willReadFrequently:true});
+let stream=null, prev=null, cur=null;
+let roi={x:.35,y:.45,w:.3,h:.45};          // normalized start/finish box
+let state='off';                            // off | preview | armed | run | done
+let recorder=null, chunks=[], recStart=0, mime='';
+let startT=0, stopT=0, points=[], snapshot=null, armHits=0;
+let emptyRef=null, quietFrames=0, lastRoiMove=0, emptyAt=0, wake=null;
+
+// ---------- storage (IndexedDB) ----------
+let dbp=null;
+function db(){ if(!dbp) dbp=new Promise((res,rej)=>{const r=indexedDB.open('lapTimer',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('runs',{keyPath:'id'});
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);}); return dbp; }
+async function tx(mode,fn){const d=await db();return new Promise((res,rej)=>{const t=d.transaction('runs',mode);const s=t.objectStore('runs');const r=fn(s);t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error);});}
+const putRun=r=>tx('readwrite',s=>s.put(r));
+const delRun=id=>tx('readwrite',s=>s.delete(id));
+const allRuns=()=>tx('readonly',s=>s.getAll());
+
+const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+roi=ls.get('roi',roi); $('rider').value=ls.get('rider',''); $('course').value=ls.get('course','');
+['sens','minRun','hold'].forEach(k=>{const v=ls.get(k,null); if(v!=null)$(k).value=v; $(k).addEventListener('change',()=>ls.set(k,$(k).value));});
+$('rider').addEventListener('change',()=>ls.set('rider',$('rider').value));
+$('course').addEventListener('change',()=>ls.set('course',$('course').value));
+const sensV=()=>{$('sensV').textContent=$('sens').value;}; sensV(); $('sens').addEventListener('input',sensV);
+
+// ---------- helpers ----------
+const fmt=ms=>ms<0?'0.000':(ms/1000).toFixed(3);
+function setPill(cls,text,sub=''){const p=$('pill');p.className='pill '+cls;p.textContent=text;$('sub').textContent=sub;}
+function pixThr(){return 46-+$('sens').value*3.5;}       // per-pixel diff threshold
+function roiPx(){return {x0:Math.max(0,Math.floor(roi.x*PW)),y0:Math.max(0,Math.floor(roi.y*PH)),x1:Math.min(PW,Math.ceil((roi.x+roi.w)*PW)),y1:Math.min(PH,Math.ceil((roi.y+roi.h)*PH))};}
+function roiGray(g){const r=roiPx(),o=[];for(let y=r.y0;y<r.y1;y++)for(let x=r.x0;x<r.x1;x++)o.push(g[y*PW+x]);return o;}
+
+// ---------- camera ----------
+$('btnCam').onclick=async()=>{
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:60}}});
+    video.srcObject=stream; await video.play();
+    state='preview'; setPill('','準備OK','枠をバイクに合わせてください');
+    $('btnCam').disabled=true; $('btnArm').disabled=false; $('btnManual').disabled=false;
+    try{wake=await navigator.wakeLock.request('screen')}catch(e){}
+    loop();
+  }catch(e){setPill('','カメラを使えません');$('sub').innerHTML='<span class="err">カメラの許可が必要です。Safariの設定でカメラを許可してください。</span>';}
+};
+document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'&&stream){try{wake=await navigator.wakeLock.request('screen')}catch(e){}}});
+
+// ---------- ROI dragging ----------
+let drag=null;
+function vRect(){const s=$('stage').getBoundingClientRect();return {l:s.left,t:s.top,w:s.width,h:s.height};}
+function fitStage(){ // make the box the same shape as the camera image (portrait or landscape)
+  const vw=video.videoWidth,vh=video.videoHeight; if(!vw||!vh)return; const st=$('stage');
+  st.style.aspectRatio=vw+'/'+vh; st.style.width=vh>vw?`min(100%, calc(62vh * ${vw/vh}))`:'100%';}
+video.addEventListener('loadedmetadata',fitStage); video.addEventListener('resize',fitStage);
+$('stage').addEventListener('pointerdown',e=>{if(state==='run')return;const r=vRect();const nx=(e.clientX-r.l)/r.w,ny=(e.clientY-r.t)/r.h;
+  const inside=nx>roi.x&&nx<roi.x+roi.w&&ny>roi.y&&ny<roi.y+roi.h;
+  const corner=Math.abs(nx-(roi.x+roi.w))<.06&&Math.abs(ny-(roi.y+roi.h))<.08;
+  drag={mode:corner?'size':inside?'move':'new',sx:nx,sy:ny,o:{...roi}}; if(drag.mode==='new')roi={x:nx,y:ny,w:.02,h:.02};
+  $('stage').setPointerCapture(e.pointerId);});
+$('stage').addEventListener('pointermove',e=>{if(!drag)return;const r=vRect();const nx=Math.min(1,Math.max(0,(e.clientX-r.l)/r.w)),ny=Math.min(1,Math.max(0,(e.clientY-r.t)/r.h));
+  if(drag.mode==='move'){roi.x=Math.min(1-roi.w,Math.max(0,drag.o.x+nx-drag.sx));roi.y=Math.min(1-roi.h,Math.max(0,drag.o.y+ny-drag.sy));}
+  else{const x0=drag.mode==='size'?drag.o.x:drag.sx,y0=drag.mode==='size'?drag.o.y:drag.sy;roi={x:Math.min(x0,nx),y:Math.min(y0,ny),w:Math.max(.05,Math.abs(nx-x0)),h:Math.max(.05,Math.abs(ny-y0))};}});
+$('stage').addEventListener('pointerup',()=>{if(drag){drag=null;ls.set('roi',roi);}});
+
+// ---------- arm / manual / cancel ----------
+$('btnArm').onclick=()=>{ if(state==='armed'){state='preview';setPill('','準備OK');stopRecorder(false);updateButtons();return;} arm(); };
+function arm(){
+  state='armed'; armHits=0; points=[]; emptyRef=null; quietFrames=0; lastRoiMove=0; prev=null;
+  snapshot=document.createElement('canvas'); snapshot.width=640; snapshot.height=360;
+  snapshot.getContext('2d').drawImage(video,0,0,640,360);
+  startRecorder(); $('clock').textContent='0.000';
+  setPill('armed','スタート待ち','発進すると自動で計測開始'); updateButtons();
+}
+$('btnManual').onclick=()=>{const now=performance.now();
+  if(state==='preview'){arm();beginRun(now);} else if(state==='armed')beginRun(now); else if(state==='run')endRun(now);};
+$('btnCancel').onclick=()=>{stopRecorder(false);state='preview';points=[];$('clock').textContent='0.000';setPill('','取り消しました');updateButtons();};
+function updateButtons(){$('btnArm').textContent=state==='armed'?'準備を解除':'計測準備';$('btnArm').disabled=state==='run'||state==='off';$('btnCancel').disabled=!(state==='armed'||state==='run');
+  $('btnManual').textContent=state==='run'?'手動ストップ':'手動スタート';}
+
+// ---------- recording ----------
+function startRecorder(){
+  chunks=[]; mime=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm'].find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported(m))||'';
+  try{recorder=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:4e6}:{});}catch(e){recorder=null;return;}
+  recorder.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
+  recorder.start(500); recStart=performance.now();
+}
+function stopRecorder(keep){return new Promise(res=>{if(!recorder||recorder.state==='inactive'){res(null);return;}
+  recorder.onstop=()=>res(keep?new Blob(chunks,{type:recorder.mimeType||mime||'video/mp4'}):null); recorder.stop();});}
+
+function beginRun(t){state='run';startT=t;points=[];setPill('run','計測中');updateButtons();}
+async function endRun(t){
+  state='done'; stopT=t; const ms=stopT-startT; $('clock').textContent=fmt(ms);
+  setPill('done','記録 '+fmt(ms)+' 秒','保存中…'); updateButtons();
+  await new Promise(r=>setTimeout(r,1200));
+  const blob=await stopRecorder(true);
+  const trail=TRAIL?await drawTrailImage():null;
+  const run={id:Date.now(),date:new Date().toISOString(),rider:$('rider').value.trim(),course:$('course').value.trim(),
+    ms:Math.round(ms),video:blob?await blob.arrayBuffer():null,videoType:blob?blob.type:'',trail:trail?await trail.arrayBuffer():null,startOffset:(startT-recStart)/1000,stopOffset:(stopT-recStart)/1000,points};
+  try{await putRun(run);setPill('done','記録 '+fmt(ms)+' 秒','保存しました');}catch(e){try{run.video=null;await putRun(run);setPill('done','記録 '+fmt(ms)+' 秒','タイムだけ保存しました（動画は保存できませんでした：'+(e&&e.name||'')+'）');}catch(e2){setPill('done','記録 '+fmt(ms)+' 秒','保存できませんでした：'+(e2&&(e2.name+' '+e2.message)||''));}}
+  state='preview'; updateButtons(); render();
+}
+
+// ---------- trail ----------
+const logoImg=new Image(); logoImg.src='../logo.png';
+function drawTrail(ctx,w,h,pts,lw){
+  if(pts.length<2)return; ctx.lineJoin='round';ctx.lineCap='round';
+  ctx.strokeStyle='rgba(0,0,0,.6)';ctx.lineWidth=lw+3;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x*w,p.y*h):ctx.moveTo(p.x*w,p.y*h));ctx.stroke();
+  ctx.strokeStyle='#ffd400';ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x*w,p.y*h):ctx.moveTo(p.x*w,p.y*h));ctx.stroke();
+  const a=pts[0],b=pts[pts.length-1];
+  ctx.fillStyle='#19c25b';ctx.beginPath();ctx.arc(a.x*w,a.y*h,lw*1.6,0,7);ctx.fill();
+  ctx.fillStyle='#ff3b30';ctx.beginPath();ctx.arc(b.x*w,b.y*h,lw*1.6,0,7);ctx.fill();
+}
+function drawTrailImage(){return new Promise(res=>{
+  const c=document.createElement('canvas');c.width=640;c.height=360;const x=c.getContext('2d');
+  if(snapshot)x.drawImage(snapshot,0,0); x.fillStyle='rgba(255,255,255,.25)';x.fillRect(0,0,640,360);
+  drawTrail(x,640,360,points,4); if(logoImg.complete&&logoImg.naturalWidth)x.drawImage(logoImg,640-98,360-98,90,90); x.fillStyle='#fff';x.font='bold 22px system-ui';x.strokeStyle='#000';x.lineWidth=4;
+  const label=fmt(stopT-startT)+' 秒  '+new Date().toLocaleString('ja-JP');x.strokeText(label,12,30);x.fillText(label,12,30);
+  c.toBlob(b=>res(b),'image/jpeg',.85);});}
+
+// ---------- main analysis loop ----------
+function loop(){
+  const step=(now)=>{ analyse(now); requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+function analyse(now){
+  if(!video.videoWidth)return;
+  pctx.drawImage(video,0,0,PW,PH);
+  const d=pctx.getImageData(0,0,PW,PH).data; cur=new Uint8Array(PW*PH);
+  for(let i=0,j=0;i<cur.length;i++,j+=4)cur[i]=(d[j]*77+d[j+1]*150+d[j+2]*29)>>8;
+  let roiMove=0,roiN=0,sx=0,sy=0,n=0;
+  if(prev){const thr=pixThr(),r=roiPx();
+    for(let y=0;y<PH;y++)for(let x=0;x<PW;x++){const i=y*PW+x;const m=Math.abs(cur[i]-prev[i])>thr;
+      const inR=x>=r.x0&&x<r.x1&&y>=r.y0&&y<r.y1; if(inR){roiN++;if(m)roiMove++;}
+      if(m){sx+=x;sy+=y;n++;}}}
+  const roiFrac=roiN?roiMove/roiN:0;
+  if(state==='armed'){ armHits=roiFrac>0.05?armHits+1:0; if(armHits>=2)beginRun(now-16); }
+  else if(state==='run'){
+    const el=now-startT; $('clock').textContent=fmt(el);
+    if(n>12){const p={x:sx/n/PW,y:sy/n/PH,t:el};const l=points[points.length-1];
+      points.push(l?{x:l.x*.6+p.x*.4,y:l.y*.6+p.y*.4,t:el}:p);}
+    // learn what the empty start box looks like once the bike has left it
+    if(!emptyRef&&el>1500){quietFrames=roiFrac<0.01?quietFrames+1:0; if(quietFrames>12){emptyRef=roiGray(cur);emptyAt=now;}}
+    if(roiFrac>0.01)lastRoiMove=now;
+    const minRun=+$('minRun').value*1000, hold=+$('hold').value*1000;
+    if(emptyRef&&el>minRun&&lastRoiMove>emptyAt&&now-lastRoiMove>hold){
+      const g=roiGray(cur);let s=0;for(let i=0;i<g.length;i++)s+=Math.abs(g[i]-emptyRef[i]);
+      if(s/g.length>14)endRun(lastRoiMove);   // bike is back in the box and has stopped
+    }
+  }
+  prev=cur; drawOverlay();
+}
+function drawOverlay(){
+  const r=$('stage').getBoundingClientRect();const dpr=Math.min(2,window.devicePixelRatio||1);
+  if(ov.width!==Math.round(r.width*dpr)){ov.width=Math.round(r.width*dpr);ov.height=Math.round(r.height*dpr);}
+  octx.clearRect(0,0,ov.width,ov.height);
+  const v=vRect(),ox=(v.l-r.left)*dpr,oy=(v.t-r.top)*dpr,w=v.w*dpr,h=v.h*dpr;
+  octx.save();octx.translate(ox,oy);
+  const col=state==='run'?'#ff3b30':state==='armed'?'#ffb020':'#2fc067';
+  octx.strokeStyle=col;octx.lineWidth=3*dpr;octx.setLineDash([10*dpr,6*dpr]);octx.strokeRect(roi.x*w,roi.y*h,roi.w*w,roi.h*h);octx.setLineDash([]);
+  octx.fillStyle=col;octx.fillRect((roi.x+roi.w)*w-9*dpr,(roi.y+roi.h)*h-9*dpr,18*dpr,18*dpr);
+  octx.font=`bold ${13*dpr}px system-ui`;octx.fillText('スタート／ゴール',roi.x*w+4*dpr,roi.y*h-6*dpr);
+  if(TRAIL&&(state==='run'||state==='done'))drawTrail(octx,w,h,points,3*dpr);
+  octx.restore();
+}
+
+// ---------- history ----------
+let runsCache=[];
+async function render(){
+  try{runsCache=(await allRuns()).sort((a,b)=>b.id-a.id);}catch(e){runsCache=[];}
+  const riders=[...new Set(runsCache.map(r=>r.rider).filter(Boolean))], courses=[...new Set(runsCache.map(r=>r.course).filter(Boolean))];
+  $('riderList').innerHTML=riders.map(v=>`<option value="${esc(v)}">`).join('');$('courseList').innerHTML=courses.map(v=>`<option value="${esc(v)}">`).join('');
+  const f=$('filter'),fv=f.value;f.innerHTML='<option value="">すべて</option>'+riders.map(v=>`<option${v===fv?' selected':''}>${esc(v)}</option>`).join('');
+  const list=runsCache.filter(r=>!f.value||r.rider===f.value);
+  const best={};list.forEach(r=>{const k=r.rider+'|'+r.course;if(!(k in best)||r.ms<best[k])best[k]=r.ms;});
+  $('tbody').innerHTML=list.length?list.map(r=>`<tr><td>${new Date(r.date).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})}</td>
+    <td>${esc(r.rider||'—')}</td><td>${esc(r.course||'—')}</td><td class="t ${best[r.rider+'|'+r.course]===r.ms?'best':''}">${fmt(r.ms)}</td>
+    <td><button data-id="${r.id}">見る</button></td></tr>`).join('')
+    :'<tr><td colspan="5" class="hint">まだ記録はありません。計測すると、ここに日時順で並びます。</td></tr>';
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('filter').onchange=render;
+$('tbody').addEventListener('click',e=>{const b=e.target.closest('button[data-id]');if(b)openRun(+b.dataset.id);});
+
+let openId=null,urls=[];
+const vblob=r=>r.video?(r.video instanceof Blob?r.video:new Blob([r.video],{type:r.videoType||'video/mp4'})):null;
+const tblob=r=>r.trail?(r.trail instanceof Blob?r.trail:new Blob([r.trail],{type:'image/jpeg'})):null;
+function openRun(id){
+  const r=runsCache.find(x=>x.id===id);if(!r)return;openId=id;urls.forEach(URL.revokeObjectURL);urls=[];
+  const pv=$('pv');
+  if(r.video){const u=URL.createObjectURL(vblob(r));urls.push(u);pv.src=u;pv.hidden=false;}else{pv.removeAttribute('src');pv.hidden=true;}
+  const tb=tblob(r);$('pTrail').hidden=!tb;$('pTrailSave').hidden=!tb;if(tb){const u=URL.createObjectURL(tb);urls.push(u);$('pTrail').src=u;}
+  $('pInfo').textContent=`${new Date(r.date).toLocaleString('ja-JP')}　${r.rider||''}　${r.course||''}　タイム ${fmt(r.ms)} 秒`;
+  pv.ontimeupdate=()=>{const t=pv.currentTime;$('pvLap').textContent=t<r.startOffset?'0.000':t>r.stopOffset?fmt(r.ms):fmt((t-r.startOffset)*1000);};
+  pv.onloadedmetadata=()=>{try{pv.currentTime=Math.max(0,r.startOffset-1)}catch(e){}};
+  $('modal').hidden=false;
+}
+$('pClose').onclick=()=>{$('pv').pause();$('modal').hidden=true;};
+$('pDel').onclick=async()=>{const b=$('pDel');if(b.dataset.c!=='1'){b.dataset.c='1';b.textContent='本当に削除する';setTimeout(()=>{b.dataset.c='';b.textContent='この記録を削除'},3000);return;}
+  await delRun(openId);b.dataset.c='';b.textContent='この記録を削除';$('modal').hidden=true;render();};
+async function share(blob,name){
+  const file=new File([blob],name,{type:blob.type});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file]});return;}catch(e){if(e.name==='AbortError')return;}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+}
+const stamp=r=>new Date(r.date).toISOString().slice(0,19).replace(/[-:T]/g,'');
+$('pSave').onclick=()=>{const r=runsCache.find(x=>x.id===openId);if(r&&r.video)share(vblob(r),`run_${stamp(r)}_${fmt(r.ms)}s.${r.videoType.includes('mp4')?'mp4':'webm'}`);};
+$('pTrailSave').onclick=()=>{const r=runsCache.find(x=>x.id===openId);if(r&&r.trail)share(tblob(r),`trail_${stamp(r)}_${fmt(r.ms)}s.jpg`);};
+$('btnCsv').onclick=()=>{const rows=[['日時','ライダー','コース','タイム(秒)']].concat(runsCache.map(r=>[new Date(r.date).toLocaleString('ja-JP'),r.rider,r.course,fmt(r.ms)]));
+  const csv='﻿'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  share(new Blob([csv],{type:'text/csv'}),'lap_times.csv');};
+
+$('modeLabel').textContent=TRAIL?'軌跡あり':'軌跡なし（タイム＋動画）';
+render(); updateButtons(); drawOverlay();
+})();
+</script>
+</body>
+</html>
